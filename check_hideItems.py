@@ -57,7 +57,7 @@ def detect_encoding(file_path, sample_size=10000):
     result = chardet.detect(raw_data)
     return result['encoding']
 
-def copy_and_convert_to_utf8_csv():
+def copy_and_convert_to_utf8_csv(destination_folder):
     converted_paths = {}  # ← 各ファイルのラベルごとにフルパスを格納
 
     for label, src_path in file_paths.items():
@@ -80,6 +80,7 @@ def copy_and_convert_to_utf8_csv():
 
                 print(f"✅ 変換成功（{encoding} → UTF-8）: {os.path.basename(src_path)}")
                 converted_paths[label] = dest_path  # ← ラベルをキーにフルパスを保存
+                
 
             except Exception as e:
                 print(f"❌ 変換失敗: {src_path} → {e}")
@@ -133,7 +134,7 @@ def notyet(config):
         # 1. テーブル初期化（全削除）
         cursor.execute("TRUNCATE TABLE result;")
 
-        # 2. カラム一覧取得（id以外）test
+        # 2. カラム一覧取得（id以外）
         cursor.execute("SHOW COLUMNS FROM result;")
         columns = [row[0] for row in cursor.fetchall() if row[0].lower() != 'id']
 
@@ -332,8 +333,9 @@ def tukiawase_rakuten(config,site):
 
 
 #######"""CSV保存"""#######
-def export_result(config,csv_path='result_export.csv'):
+def export_result(config,converted_paths):
     try:
+        
         conn = mysql.connector.connect(**config)
         cursor = conn.cursor()
 
@@ -344,72 +346,84 @@ def export_result(config,csv_path='result_export.csv'):
         # カラム名取得
         column_names = [desc[0] for desc in cursor.description]
 
+        export_path = os.path.join(os.path.dirname(converted_paths["hide_file"]), "result_export.csv")
+
         # CSV出力
-        with open(csv_path, mode='w', newline='', encoding='utf-8-sig') as file:
+        with open(export_path, mode='w', newline='', encoding='utf-8-sig') as file:
             writer = csv.writer(file)
             writer.writerow(column_names)  # ヘッダー
             writer.writerows(rows)         # データ
+            
 
-        print(f"result テーブルをCSV出力しました: {csv_path}")
+        print(f"result テーブルをCSV出力しました: {export_path}")
 
     finally:
         cursor.close()
         conn.close()
+        
+
+
+def main():
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    destination_folder = os.path.join(base_dir, "全データ")
+    os.makedirs(destination_folder, exist_ok=True)
+
+    converted_files = copy_and_convert_to_utf8_csv(destination_folder)
+    print(converted_files)
+
+    #取り込み,突合せ
+    time.sleep(1)
+    items = "items"
+    truncate_items(items, config)
+    time.sleep(1)
+    load_csv_hide(config)
+    time.sleep(1)
+
+
+    notyet(config)
+
+    site = "yahoomaido_products"
+    truncate(site, config)
+    time.sleep(1)
+    inputcsv = converted_files['Yahoomaido'].replace("\\", "\\\\")
+    load_yahoo(inputcsv,site)
+    tukiawase_Yahoo(config,site)
+
+    site = "yahoocodi_products"
+    truncate(site, config)
+    time.sleep(1)
+    inputcsv = converted_files['Yahoocodi'].replace("\\", "\\\\")
+    load_yahoo(inputcsv,site)
+    tukiawase_Yahoo(config,site)
+
+    site = "rakutenmaido_products"
+    truncate(site, config)
+    time.sleep(1)
+    inputcsv = converted_files['rakutenmaido'].replace("\\", "\\\\")
+    load_rakuten(inputcsv,site)
+    tukiawase_rakuten(config,site)
+
+    site = "rakutencodi_products"
+    truncate(site, config)
+    time.sleep(1)
+    inputcsv = converted_files['rakutencodi'].replace("\\", "\\\\")
+    load_rakuten(inputcsv,site)
+    tukiawase_rakuten(config,site)
+
+
+
+    export_result(config,converted_files)
+
 
 """本処理"""
 
 # 保存先フォルダを作成
-base_dir = os.path.dirname(os.path.abspath(__file__))
-destination_folder = os.path.join(base_dir, "全データ")
-os.makedirs(destination_folder, exist_ok=True)
 
+main()
+    
 # 実行
 
-converted_files = copy_and_convert_to_utf8_csv()
-print(converted_files)
 
-#取り込み,突合せ
-time.sleep(1)
-items = "items"
-truncate_items(items, config)
-time.sleep(1)
-load_csv_hide(config)
-time.sleep(1)
-
-
-notyet(config)
-
-site = "yahoomaido_products"
-truncate(site, config)
-time.sleep(1)
-inputcsv = converted_files['Yahoomaido'].replace("\\", "\\\\")
-load_yahoo(inputcsv,site)
-tukiawase_Yahoo(config,site)
-
-site = "yahoocodi_products"
-truncate(site, config)
-time.sleep(1)
-inputcsv = converted_files['Yahoocodi'].replace("\\", "\\\\")
-load_yahoo(inputcsv,site)
-tukiawase_Yahoo(config,site)
-
-site = "rakutenmaido_products"
-truncate(site, config)
-time.sleep(1)
-inputcsv = converted_files['rakutenmaido'].replace("\\", "\\\\")
-load_rakuten(inputcsv,site)
-tukiawase_rakuten(config,site)
-
-site = "rakutencodi_products"
-truncate(site, config)
-time.sleep(1)
-inputcsv = converted_files['rakutencodi'].replace("\\", "\\\\")
-load_rakuten(inputcsv,site)
-tukiawase_rakuten(config,site)
-
-
-
-export_result(config, csv_path='result_export.csv')
 
 
 
