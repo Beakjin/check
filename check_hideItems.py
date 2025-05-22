@@ -133,7 +133,7 @@ def notyet(config):
         # 1. テーブル初期化（全削除）
         cursor.execute("TRUNCATE TABLE result;")
 
-        # 2. カラム一覧取得（id以外）
+        # 2. カラム一覧取得（id以外）test
         cursor.execute("SHOW COLUMNS FROM result;")
         columns = [row[0] for row in cursor.fetchall() if row[0].lower() != 'id']
 
